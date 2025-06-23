@@ -22,7 +22,7 @@ build/
 
 # VSCode settings
 .vscode/
-
+.cursorrules
 # OS files
 .DS_Store
 Thumbs.db

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from src.database import Base
 
-Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
@@ -14,3 +14,5 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_superuser = Column(Boolean, default=False)
     google_id = Column(String, unique=True, index=True, nullable=True)
+
+    bots = relationship("Bot", back_populates="owner")
