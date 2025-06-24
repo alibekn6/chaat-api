@@ -7,7 +7,20 @@ from src.auth.schema import User
 from src.auth.dependencies import get_current_user
 from src.bots import models, crud
 
-router = APIRouter(prefix="", tags=["bots"])
+router = APIRouter(tags=["bots"])
+
+
+@router.post("/", response_model=models.Bot, status_code=status.HTTP_201_CREATED)
+async def create_bot_record(
+    bot: models.BotCreate,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a new bot record in the database.
+    This is the first step before generating code for the bot.
+    """
+    return await crud.create_bot(db=db, bot=bot, owner_id=current_user.id)
 
 
 @router.get("/", response_model=List[models.Bot])

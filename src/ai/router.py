@@ -12,33 +12,26 @@ from src.ai.manager import bot_manager
 router = APIRouter(prefix="/ai", tags=["AI Bot Generation"])
 
 
-@router.post("/bots/generate", response_model=bot_models.Bot)
-async def generate_bot(
-    bot_create: bot_models.BotCreate,
-    current_user: User = Depends(get_current_user),
+@router.post("/bots/{bot_id}/generate", response_model=bot_models.Bot)
+async def generate_bot_code(
+    bot_id: int,
     db: AsyncSession = Depends(get_async_db),
-    generator: AIBotGenerator = Depends(AIBotGenerator),
+    current_user: User = Depends(get_current_user),
 ):
-    # 1. Create the bot record in the database
-    db_bot = await bots_crud.create_bot(
-        db=db, bot=bot_create, owner_id=current_user.id
-    )
+    """
+    Generates Python code for a Telegram bot based on stored requirements.
+    """
+    db_bot = await bots_crud.get_bot(db, bot_id=bot_id)
+    if not db_bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    if db_bot.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
 
-    # 2. Generate the bot code
-    try:
-        generated_code = await generator.generate_bot_code(bot_create.requirements)
-    except Exception as e:
-        # If generation fails, update status and raise error
-        db_bot.status = "generation_failed"
-        await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate bot code: {e}",
-        )
+    generator = AIBotGenerator()
+    generated_code = await generator.generate_bot_code(db_bot.requirements)
 
-    # 3. Save the generated code to the bot record
     updated_bot = await bots_crud.update_bot_code(
-        db=db, bot_id=db_bot.id, code=generated_code
+        db, bot_id=bot_id, code=generated_code
     )
     return updated_bot
 
