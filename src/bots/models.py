@@ -1,54 +1,32 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from uuid import UUID
-from src.bots.schema import KnowledgeSourceType
-
-
-# Schemas for KnowledgeSource
-class KnowledgeSourceBase(BaseModel):
-    source_type: KnowledgeSourceType
-    content: Optional[str] = None
-    url: Optional[str] = None
-    file_path: Optional[str] = None
-
-
-class KnowledgeSourceCreate(KnowledgeSourceBase):
-    pass
-
-
-class KnowledgeSource(KnowledgeSourceBase):
-    id: int
-    bot_id: int
-
-    class Config:
-        from_attributes = True
+from datetime import datetime
 
 
 class BotBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    bot_name: Optional[str] = None
-    bot_greeting: Optional[str] = None
-    bot_tonality: Optional[str] = None
-
-
-class BotUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    bot_name: Optional[str] = None
-    bot_greeting: Optional[str] = None
-    bot_tonality: Optional[str] = None
+    bot_name: str
+    requirements: str
+    bot_token: str = Field(..., description="The Telegram bot token.")
 
 
 class BotCreate(BotBase):
     pass
 
 
+class BotUpdate(BaseModel):
+    bot_name: Optional[str] = None
+    requirements: Optional[str] = None
+    bot_token: Optional[str] = None
+
+
 class Bot(BotBase):
     id: int
     owner_id: int
-    link: UUID
-    knowledge_sources: List[KnowledgeSource] = []
+    generated_code: Optional[str] = None
+    status: str
+    is_running: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True 

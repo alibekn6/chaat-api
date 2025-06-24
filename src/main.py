@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.database import get_async_db, init_db, async_engine, Base
 from src.auth.api import router as auth_router
 from src.bots.api import router as bots_router
+from src.ai.router import router as ai_router
 import src.auth.schema
 import src.bots.schema
 
@@ -35,7 +36,7 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(bots_router, prefix="/bots", tags=["bots"])
-
+app.include_router(ai_router)
 
 @app.get("/", tags=["root"])
 def read_root() -> dict[str, str]:
