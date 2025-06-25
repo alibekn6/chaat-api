@@ -26,5 +26,6 @@ class Bot(Base):
     status = Column(String(50), default="created")
     is_running = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
+    pid = Column(Integer, nullable=True)
 
     owner = relationship("User", back_populates="bots") 

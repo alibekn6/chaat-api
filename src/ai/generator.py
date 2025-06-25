@@ -28,7 +28,6 @@ The code must:
 
 Example Structure:
 ```python
-import asyncio
 import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -36,17 +35,19 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello!")
 
-async def main():
+def main():
     token = os.environ.get('BOT_TOKEN')
     if not token:
         raise ValueError("No BOT_TOKEN found in environment variables")
         
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
-    await app.run_polling()
+    
+    # Run the bot until the user presses Ctrl-C
+    app.run_polling()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
 ```
 Return only the final, complete Python code without any explanations or markdown formatting.
 """

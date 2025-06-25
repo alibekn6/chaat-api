@@ -54,14 +54,19 @@ async def deploy_bot(
             status_code=400, detail="Bot code has not been generated yet."
         )
 
+    # Stop any previously running instance of the same bot
+    if db_bot.pid:
+        await bot_manager.stop_bot(db_bot.pid)
+
     # Deploy using the bot manager
-    await bot_manager.deploy_bot(
+    pid = await bot_manager.deploy_bot(
         bot_id=str(db_bot.id),
         bot_code=db_bot.generated_code,
         bot_token=db_bot.bot_token,
     )
 
-    # Update bot status in DB
+    # Save new PID and update status in DB
+    await bots_crud.update_bot_pid(db, bot_id=db_bot.id, pid=pid)
     updated_bot = await bots_crud.update_bot_status(db, bot_id=db_bot.id, is_running=True)
     return updated_bot
 
@@ -81,8 +86,9 @@ async def stop_bot(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Stop using the bot manager
-    await bot_manager.stop_bot(bot_id=str(db_bot.id))
+    await bot_manager.stop_bot(pid=db_bot.pid)
 
-    # Update bot status in DB
+    # Clear PID and update bot status in DB
+    await bots_crud.update_bot_pid(db, bot_id=db_bot.id, pid=None)
     updated_bot = await bots_crud.update_bot_status(db, bot_id=db_bot.id, is_running=False)
     return updated_bot 

@@ -27,6 +27,7 @@ class Bot(BotBase):
     status: str
     is_running: bool
     created_at: datetime
+    pid: Optional[int] = None
 
     class Config:
         from_attributes = True 

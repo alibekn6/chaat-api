@@ -57,6 +57,15 @@ async def update_bot_code(db: AsyncSession, bot_id: int, code: str) -> schema.Bo
     return db_bot
 
 
+async def update_bot_pid(db: AsyncSession, bot_id: int, pid: int | None) -> schema.Bot:
+    db_bot = await get_bot(db, bot_id)
+    if db_bot:
+        db_bot.pid = pid
+        await db.commit()
+        await db.refresh(db_bot)
+    return db_bot
+
+
 async def delete_bot(db: AsyncSession, bot_id: int):
     db_bot = await get_bot(db, bot_id)
     if db_bot:
