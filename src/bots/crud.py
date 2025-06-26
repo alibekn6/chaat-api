@@ -30,9 +30,24 @@ async def update_bot(db: AsyncSession, bot_id: int, bot_update: models.BotUpdate
     db_bot = await get_bot(db, bot_id)
     if not db_bot:
         return None
+
     update_data = bot_update.model_dump(exclude_unset=True)
+
+    # Check if critical fields that invalidate generated code have changed
+    if (
+        "requirements" in update_data and update_data["requirements"] != db_bot.requirements
+    ) or (
+        "bot_token" in update_data and update_data["bot_token"] != db_bot.bot_token
+    ):
+        db_bot.status = "created"
+        db_bot.generated_code = None
+        db_bot.is_running = False
+        # We don't clear the PID here, as a separate stop call is needed.
+        # But we could kill it here if needed. For now, just reset status.
+
     for key, value in update_data.items():
         setattr(db_bot, key, value)
+    
     db.add(db_bot)
     await db.commit()
     await db.refresh(db_bot)

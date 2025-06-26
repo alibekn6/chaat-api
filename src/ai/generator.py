@@ -30,7 +30,7 @@ Example Structure:
 ```python
 import os
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello!")
@@ -42,6 +42,9 @@ def main():
         
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
+    
+    # Example of adding a message handler for echo functionality
+    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_function))
     
     # Run the bot until the user presses Ctrl-C
     app.run_polling()
