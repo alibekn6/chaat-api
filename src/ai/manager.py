@@ -20,6 +20,7 @@ class BotManager:
 
         env = os.environ.copy()
         env['BOT_TOKEN'] = bot_token
+        env['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY", "")
         
         env['PYTHONPATH'] = os.getenv('PYTHONPATH', '') + ':' + os.path.abspath('src')
 

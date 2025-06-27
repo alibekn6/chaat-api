@@ -1,6 +1,7 @@
 import os
 import openai
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
 
@@ -19,40 +20,31 @@ Create a simple Telegram bot in Python using the python-telegram-bot library, ve
 
 Requirements: {requirements}
 
-The code must:
-1. Use async/await.
-2. Get the bot token from the environment variable os.environ['BOT_TOKEN'].
-3. Have a /start command with a greeting.
-4. Be ready to run as a standalone script.
-5. Include a main() function for startup.
+Additional requirements:
+1. Use async/await everywhere.
+2. Read `BOT_TOKEN` and `OPENAI_API_KEY` from environment variables.
+3. Initialize an `openai.AsyncOpenAI` client in the global scope, not inside a handler.
+4. Implement a `/start` handler with a greeting.
+5. Implement a default message handler that:
+   a) Takes any incoming text message.
+   b) Uses the global OpenAI client to call the chat completions API:
+      ```python
+      response = await client.chat.completions.create(
+          model="gpt-4o-mini",
+          messages=[
+              {{"role": "system", "content": "You are a helpful assistant."}},
+              {{"role": "user", "content": update.message.text}}
+          ],
+          temperature=0.7,
+      )
+      answer = response.choices[0].message.content
+      ```
+   c) Sends `answer` back to the user.
+6. Include all necessary imports: `import openai`, `import os`, `from telegram import Update`, `from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes`.
+7. Wrap startup in a synchronous `main()` function that builds the Application, adds handlers, and calls `application.run_polling()`.
+8. The `main` function should be called directly from the `if __name__ == '__main__':` block.
 
-Example Structure:
-```python
-import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello!")
-
-def main():
-    token = os.environ.get('BOT_TOKEN')
-    if not token:
-        raise ValueError("No BOT_TOKEN found in environment variables")
-        
-    app = Application.builder().token(token).build()
-    app.add_handler(CommandHandler("start", start))
-    
-    # Example of adding a message handler for echo functionality
-    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo_function))
-    
-    # Run the bot until the user presses Ctrl-C
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
-```
-Return only the final, complete Python code without any explanations or markdown formatting.
+Return ONLY the final, runnable Python code—никаких пояснений и никаких markdown-фрейм.
 """
         response = await self.client.chat.completions.create(
             model="gpt-4o-mini",
@@ -69,3 +61,6 @@ Return only the final, complete Python code without any explanations or markdown
                 content = content[:-3].strip()
         
         return content
+
+if __name__ == '__main__':
+    asyncio.run(AIBotGenerator().generate_bot_code(""))
