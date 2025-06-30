@@ -81,6 +81,16 @@ async def update_bot_pid(db: AsyncSession, bot_id: int, pid: int | None) -> sche
     return db_bot
 
 
+async def update_bot_knowledge_status(db: AsyncSession, bot_id: int, status: str) -> schema.Bot:
+    """Update the knowledge base status for a bot."""
+    db_bot = await get_bot(db, bot_id)
+    if db_bot:
+        db_bot.knowledge_base_status = status
+        await db.commit()
+        await db.refresh(db_bot)
+    return db_bot
+
+
 async def delete_bot(db: AsyncSession, bot_id: int):
     db_bot = await get_bot(db, bot_id)
     if db_bot:

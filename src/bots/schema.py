@@ -22,10 +22,12 @@ class Bot(Base):
     bot_token = Column(String(255))  # This should be encrypted in a real app
     requirements = Column(Text, nullable=True)
     generated_code = Column(Text, nullable=True)
+    bot_type = Column(String(50), default="simple_chat")
     
     status = Column(String(50), default="created")
     is_running = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     pid = Column(Integer, nullable=True)
+    knowledge_base_status = Column(String(50), default="empty")
 
     owner = relationship("User", back_populates="bots") 

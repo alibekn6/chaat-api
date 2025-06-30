@@ -84,4 +84,16 @@ async def delete_bot_record(
         raise HTTPException(status_code=403, detail="Not enough permissions")
     if db_bot is None:
         return
+    # Stop the bot process if running
+    if db_bot.pid:
+        from src.ai.manager import bot_manager
+        await bot_manager.stop_bot(db_bot.pid)
+        await crud.update_bot_pid(db, bot_id=bot_id, pid=None)
+        await crud.update_bot_status(db, bot_id=bot_id, is_running=False)
+    
+    # Clean up knowledge base if it exists
+    if db_bot.bot_type == "qa_knowledge_base":
+        from src.ai.knowledge import delete_knowledge_base
+        delete_knowledge_base(bot_id)
+    
     await crud.delete_bot(db=db, bot_id=bot_id) 
