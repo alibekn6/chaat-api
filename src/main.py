@@ -21,9 +21,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
-origins = [
+
+origins: list[str] = [
     "http://localhost:5173",      
     "http://165.22.95.110:80",
 ]
