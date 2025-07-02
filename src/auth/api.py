@@ -24,7 +24,7 @@ from src.auth.services import (
 from src.database import get_async_db
 from src.auth.schema import User
 from src.auth.config import GOOGLE_CLIENT_ID, REFRESH_SECRET_KEY, ALGORITHM
-from src.auth.services import get_current_user
+from src.auth.dependencies import get_current_user
 
 router = APIRouter(tags=["auth"])
 
@@ -115,11 +115,49 @@ async def refresh_access_token(
     return {"access_token": access_token, "refresh_token": refresh_token}
 
 
+@router.get("/me", response_model=UserRead)
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's profile - secure way without needing user ID"""
+    return current_user
+
+@router.put("/me", response_model=UserRead)
+async def update_current_user_profile(
+    user_up: UserUpdate,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's profile - secure way without needing user ID"""
+    for var, value in user_up.dict(exclude_unset=True).items():
+        setattr(current_user, var, value)
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+@router.delete("/me")
+async def delete_current_user_account(
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete current user's account - secure way without needing user ID"""
+    await db.delete(current_user)
+    await db.commit()
+    return {"detail": "Your account has been deleted"}
+
 @router.get("/users/{user_id}", response_model=UserRead)
 async def read_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="You can only access your own profile"
+        )
+    
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -129,8 +167,15 @@ async def read_user(
 async def update_user(
     user_id: int,
     user_up: UserUpdate,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="You can only update your own profile"
+        )
+    
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
