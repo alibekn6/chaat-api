@@ -32,6 +32,8 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",      
     "http://165.22.95.110:80",
+    "https://reeply.works",
+    "http://reeply.works",
 ]
 
 app.add_middleware(
