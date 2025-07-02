@@ -24,6 +24,7 @@ from src.auth.services import (
 from src.database import get_async_db
 from src.auth.schema import User
 from src.auth.config import GOOGLE_CLIENT_ID, REFRESH_SECRET_KEY, ALGORITHM
+from src.auth.services import get_current_user
 
 router = APIRouter(tags=["auth"])
 
@@ -143,11 +144,19 @@ async def update_user(
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
-    db: AsyncSession = Depends(get_async_db)
+    db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user)
 ):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=403, 
+            detail="You can only delete your own account"
+        )
+    
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
     await db.delete(user)
     await db.commit()
     return {"detail": "User deleted"}

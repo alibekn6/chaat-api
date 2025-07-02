@@ -29,7 +29,7 @@ app = FastAPI(
 )
 
 
-origins: list[str] = [
+origins = [
     "http://localhost:5173",      
     "http://165.22.95.110:80",
 ]
