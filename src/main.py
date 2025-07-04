@@ -1,5 +1,7 @@
-from fastapi import FastAPI, Depends, status
+from fastapi import FastAPI, Depends, status, Request
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +29,37 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Custom validation error handler to format errors consistently"""
+    formatted_errors = []
+    for error in exc.errors():
+        # Get the field name from location path
+        field = error['loc'][-1] if error['loc'] else 'unknown'
+        message = error['msg']
+        error_type = error.get('type', '')
+        
+        # Custom error messages for common validation errors
+        if 'email' in str(field).lower() and 'value_error' in error_type:
+            message = 'Please enter a valid email address'
+        elif error_type == 'missing':
+            message = f'{field.replace("_", " ").title()} is required'
+        elif 'value_error' in error_type and 'Password must be at least' in message:
+            message = 'Password must be at least 8 characters long'
+        elif 'value_error' in error_type and 'Full name must be at least' in message:
+            message = 'Full name must be at least 2 characters long'
+        
+        formatted_errors.append({
+            "field": field,
+            "message": message
+        })
+    
+    return JSONResponse(
+        status_code=422,
+        content={"detail": formatted_errors}
+    )
 
 
 origins = [
