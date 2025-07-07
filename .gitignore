@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+DEPLOYMENT_CHECKLIST.md
 
 # Virtual environments
 .venv/
@@ -32,9 +33,6 @@ unified-ion-463106-v9-021b48db7f17.json
 # Logs
 *.log
 
-# Alembic migration files (optional, if generated)
-alembic/versions/
-
 # Test cache
 .pytest_cache/
 
@@ -50,3 +48,4 @@ htmlcov/
 
 # Local config
 logging.ini
+
