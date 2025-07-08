@@ -29,11 +29,11 @@ openai_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 async def process_and_store_knowledge_base(bot_id: int, file_path: str) -> None:
     """
-    Process a PDF file and store it as embeddings in ChromaDB.
+    Process ALL PDF files in bot directory and store them as embeddings in ChromaDB.
     
     Args:
         bot_id: The bot ID this knowledge base belongs to
-        file_path: Path to the uploaded PDF file
+        file_path: Path to the uploaded PDF file (used for logging, but we process all files)
     """
     try:
         print(f"Starting knowledge base processing for bot {bot_id}")
@@ -42,30 +42,40 @@ async def process_and_store_knowledge_base(bot_id: int, file_path: str) -> None:
             await bots_crud.update_bot_knowledge_status(db, bot_id, "processing")
             break
         
-
-        print(f"Extracting text from PDF: {file_path}")
-        raw_text = ""
-        with open(file_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page in pdf_reader.pages:
-                raw_text += page.extract_text() + "\n\n"
+        # Get bot directory and find all PDF files
+        bot_dir = KNOWLEDGE_BASES_DIR / str(bot_id)
+        pdf_files = list(bot_dir.glob("*.pdf"))
         
-        if not raw_text.strip():
-            raise ValueError("No text could be extracted from the PDF")
+        if not pdf_files:
+            raise ValueError("No PDF files found in bot directory")
         
-        # 2. Chunk the text
-        print("Chunking text...")
+        print(f"Found {len(pdf_files)} PDF files to process")
+        
+        # Extract text from ALL PDF files
+        all_raw_text = ""
+        for pdf_file in pdf_files:
+            print(f"Extracting text from PDF: {pdf_file}")
+            with open(pdf_file, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    all_raw_text += page.extract_text() + "\n\n"
+        
+        if not all_raw_text.strip():
+            raise ValueError("No text could be extracted from any PDF files")
+        
+        # 2. Chunk the combined text
+        print("Chunking combined text from all files...")
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=100,
             length_function=len,
         )
-        chunks = text_splitter.split_text(raw_text)
+        chunks = text_splitter.split_text(all_raw_text)
         
         if not chunks:
             raise ValueError("No text chunks were created")
         
-        print(f"Created {len(chunks)} text chunks")
+        print(f"Created {len(chunks)} text chunks from all files")
         
         # 3. Generate embeddings and store in ChromaDB
         collection_name = f"bot_{bot_id}_kb"
@@ -79,7 +89,7 @@ async def process_and_store_knowledge_base(bot_id: int, file_path: str) -> None:
         # Create new collection
         collection = chroma_client.create_collection(
             name=collection_name,
-            metadata={"bot_id": bot_id}
+            metadata={"bot_id": bot_id, "files_count": len(pdf_files)}
         )
         
         # Generate embeddings for all chunks
@@ -99,7 +109,7 @@ async def process_and_store_knowledge_base(bot_id: int, file_path: str) -> None:
             ids=chunk_ids
         )
         
-        print(f"Stored {len(chunks)} chunks in ChromaDB collection '{collection_name}'")
+        print(f"Stored {len(chunks)} chunks from {len(pdf_files)} files in ChromaDB collection '{collection_name}'")
         
         # Update bot status to ready
         async for db in get_async_db():

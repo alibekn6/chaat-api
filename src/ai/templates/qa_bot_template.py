@@ -31,12 +31,19 @@ logger = logging.getLogger(__name__)
 openai_client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY)
 chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
-try:
-    collection = chroma_client.get_collection(name=COLLECTION_NAME)
+def get_collection():
+    """Get or reconnect to ChromaDB collection."""
+    try:
+        return chroma_client.get_collection(name=COLLECTION_NAME)
+    except Exception as e:
+        logger.error(f"Could not connect to ChromaDB collection '{COLLECTION_NAME}': {e}")
+        return None
+
+collection = get_collection()
+if collection:
     logger.info(f"Successfully connected to ChromaDB collection: {COLLECTION_NAME}")
-except Exception as e:
-    logger.error(f"Could not connect to ChromaDB collection '{COLLECTION_NAME}'. Bot may not function. Error: {e}")
-    collection = None
+else:
+    logger.error(f"Could not connect to ChromaDB collection '{COLLECTION_NAME}'. Bot may not function.")
 
 
 # --- Command Handlers ---
@@ -53,7 +60,9 @@ async def handle_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"Question from {chat_id}: {user_question}")
 
-    if not collection:
+    # Try to get collection (reconnect if needed)
+    current_collection = get_collection()
+    if not current_collection:
         await update.message.reply_text("Извините, база знаний недоступна. Попробуйте позже.")
         return
 
@@ -68,7 +77,7 @@ async def handle_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query_embedding = embeddings_response.data[0].embedding
 
         # Retrieve relevant context from ChromaDB
-        results = collection.query(
+        results = current_collection.query(
             query_embeddings=[query_embedding],
             n_results=4
         )
