@@ -10,6 +10,7 @@ from alembic import context
 from src.database import Base
 import src.auth.schema  # Import to register User model
 import src.bots.schema  # Import to register Bot model
+import src.feedbacks.models  # Import to register Feedback models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

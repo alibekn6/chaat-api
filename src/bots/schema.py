@@ -30,4 +30,5 @@ class Bot(Base):
     pid = Column(Integer, nullable=True)
     knowledge_base_status = Column(String(50), default="empty")
 
-    owner = relationship("User", back_populates="bots") 
+    owner = relationship("User", back_populates="bots")
+    feedbacks = relationship("Feedback", back_populates="bot", cascade="all, delete-orphan") 

@@ -1,33 +1,57 @@
-from fastapi import FastAPI, Depends, status, Request
+from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.middleware.cors import CORSMiddleware
-from src.database import get_async_db, init_db, async_engine, Base
+from src.database import get_async_db, async_engine, Base
 from src.auth.api import router as auth_router
 from src.bots.api import router as bots_router
 from src.ai.router import router as ai_router
+from src.feedbacks.api import router as feedbacks_router
 import src.auth.schema
 import src.bots.schema
+import src.feedbacks.models
+import logging
+from pathlib import Path
+from src.utils.azure_config import azure_settings
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-    async with async_engine.begin() as conn:
-        # dev only
-        # await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    # Startup
+    logger.info("Starting application...")
+    
+    # Create local storage directory
+    local_storage_dir = Path(azure_settings.local_storage_path)
+    local_storage_dir.mkdir(exist_ok=True)
+    logger.info(f"Local storage directory: {local_storage_dir}")
+    
+    # Log Azure status
+    if azure_settings.azure_sdk_available:
+        if azure_settings.azure_storage_enabled:
+            logger.info("Azure Storage: ENABLED")
+        else:
+            logger.info("Azure Storage: DISABLED (using local storage)")
+    else:
+        logger.warning("Azure SDK not available - falling back to local storage")
+    
     yield
-
+    
+    # Shutdown
+    logger.info("Shutting down application...")
 
 app = FastAPI(
-    lifespan=lifespan,
-    docs_url=None,
-    redoc_url=None,
-    openapi_url=None,
+    title="Chaat API",
+    description="API for no-code Telegram bot creation platform",
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 
@@ -71,20 +95,33 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"], 
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Mount static files for local image serving
+app.mount("/static/feedback_images", StaticFiles(directory=azure_settings.local_storage_path), name="feedback_images")
 
-app.include_router(auth_router, prefix="/auth", tags=["auth"])
-app.include_router(bots_router, prefix="/bots", tags=["bots"])
-app.include_router(ai_router)
+# Include routers
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(bots_router, prefix="/bots", tags=["Bots"])
+app.include_router(ai_router, prefix="/ai", tags=["AI"])
+app.include_router(feedbacks_router, prefix="/feedbacks", tags=["Feedbacks"])
 
-@app.get("/", tags=["root"])
-def read_root() -> dict[str, str]:
-    return {"message": "API is up and running"}
+@app.get("/")
+async def root():
+    return {"message": "Chaat API is running"}
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy", 
+        "azure_sdk_available": azure_settings.azure_sdk_available,
+        "azure_enabled": azure_settings.azure_storage_enabled,
+        "storage_mode": "azure" if azure_settings.azure_storage_enabled else "local"
+    }
 
 @app.get("/health/database", tags=["health"], response_model=dict[str, str])
 async def check_database_connection(

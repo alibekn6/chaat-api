@@ -78,3 +78,6 @@ PyPDF2
 chromadb
 langchain-text-splitters
 aiofiles
+
+# Azure Storage for images (optional - will fallback to local storage if not available)
+# azure-storage-blob==12.19.0

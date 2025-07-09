@@ -1,0 +1,1 @@
+# Feedbacks module for collecting user feedback and reviews 

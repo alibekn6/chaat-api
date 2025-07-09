@@ -8,7 +8,7 @@ from enum import Enum
 class BotType(str, Enum):
     simple_chat = "simple_chat"
     qa_knowledge_base = "qa_knowledge_base"
-
+    qa_feedback = "qa_feedback"
 
 class BotBase(BaseModel):
     bot_name: str

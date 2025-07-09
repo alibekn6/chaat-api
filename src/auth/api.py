@@ -423,8 +423,13 @@ async def get_security_stats(
 async def test_email_sending(
     email: str = Body(..., embed=True),
     db: AsyncSession = Depends(get_async_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Test email sending functionality (development only)"""
+    # Only allow superusers to test email
+    if not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     from src.auth.email_service import send_email
     
     html_content = """

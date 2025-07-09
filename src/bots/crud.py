@@ -5,7 +5,8 @@ from src.bots import models, schema
 
 
 async def create_bot(db: AsyncSession, bot: models.BotCreate, owner_id: int) -> schema.Bot:
-    db_bot = schema.Bot(**bot.model_dump(), owner_id=owner_id)
+    bot_data = bot.model_dump()
+    db_bot = schema.Bot(**bot_data, owner_id=owner_id)
     db.add(db_bot)
     await db.commit()
     await db.refresh(db_bot)
@@ -14,6 +15,11 @@ async def create_bot(db: AsyncSession, bot: models.BotCreate, owner_id: int) -> 
 
 async def get_bot(db: AsyncSession, bot_id: int) -> schema.Bot | None:
     result = await db.execute(select(schema.Bot).filter(schema.Bot.id == bot_id))
+    return result.scalar_one_or_none()
+
+
+async def get_bot_by_token(db: AsyncSession, bot_token: str) -> schema.Bot | None:
+    result = await db.execute(select(schema.Bot).filter(schema.Bot.bot_token == bot_token))
     return result.scalar_one_or_none()
 
 
