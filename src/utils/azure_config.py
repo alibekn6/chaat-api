@@ -15,7 +15,11 @@ class AzureStorageSettings(BaseSettings):
     
     # Azure Storage connection string
     azure_storage_connection_string: str = os.getenv(
-        "AZURE_STORAGE_CONNECTION_STRING"
+<<<<<<< HEAD
+        "AZURE_STORAGE_CONNECTION_STRING",
+=======
+        "AZURE_STORAGE_CONNECTION_STRING",
+>>>>>>> d148441 (feat: Q&A feedback bot .env)
     )
     
     # Container name for feedback photos
