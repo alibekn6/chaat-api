@@ -86,8 +86,8 @@ class FeedbackResponse(FeedbackBase):
 
 
 class FeedbackStats(BaseModel):
-    total_feedbacks: int
-    average_rating: Optional[float] = None
-    rating_distribution: dict  # {1: count, 2: count, ...}
-    recent_feedbacks_count: int  # Last 7 days
-    status_distribution: dict  # {new: count, read: count, ...} 
+    total_count: int
+    average_rating: float
+    new_count: int
+    read_count: int
+    replied_count: int 

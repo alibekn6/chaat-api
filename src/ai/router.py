@@ -15,7 +15,7 @@ from src.ai.generator import generate_bot_code
 from src.ai.manager import bot_manager
 from src.ai.knowledge import process_and_store_knowledge_base, delete_knowledge_base, KNOWLEDGE_BASES_DIR
 
-router = APIRouter(prefix="/ai", tags=["AI Bot Generation"])
+router = APIRouter(tags=["ai"])
 
 # Ensure knowledge bases directory exists
 KNOWLEDGE_BASES_DIR.mkdir(exist_ok=True)
@@ -38,8 +38,8 @@ async def upload_knowledge_base(
     if db_bot.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Check if this is a Q&A bot
-    if db_bot.bot_type != "qa_knowledge_base":
+    # Check if this is a Q&A bot (both qa_knowledge_base and qa_feedback need knowledge base)
+    if db_bot.bot_type not in ["qa_knowledge_base", "qa_feedback"]:
         raise HTTPException(
             status_code=400, 
             detail="Knowledge base upload is only available for Q&A bots"
@@ -87,8 +87,8 @@ async def get_knowledge_base_files(
     if db_bot.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Check if this is a Q&A bot
-    if db_bot.bot_type != "qa_knowledge_base":
+    # Check if this is a Q&A bot (both qa_knowledge_base and qa_feedback need knowledge base)
+    if db_bot.bot_type not in ["qa_knowledge_base", "qa_feedback"]:
         raise HTTPException(
             status_code=400, 
             detail="Knowledge base files are only available for Q&A bots"
@@ -142,8 +142,8 @@ async def delete_knowledge_base_file(
     if db_bot.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Check if this is a Q&A bot
-    if db_bot.bot_type != "qa_knowledge_base":
+    # Check if this is a Q&A bot (both qa_knowledge_base and qa_feedback need knowledge base)
+    if db_bot.bot_type not in ["qa_knowledge_base", "qa_feedback"]:
         raise HTTPException(
             status_code=400, 
             detail="Knowledge base files are only available for Q&A bots"
@@ -321,8 +321,8 @@ async def reprocess_knowledge_base(
     if db_bot.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Check if this is a Q&A bot
-    if db_bot.bot_type != "qa_knowledge_base":
+    # Check if this is a Q&A bot (both qa_knowledge_base and qa_feedback need knowledge base)
+    if db_bot.bot_type not in ["qa_knowledge_base", "qa_feedback"]:
         raise HTTPException(
             status_code=400, 
             detail="Knowledge base reprocessing is only available for Q&A bots"

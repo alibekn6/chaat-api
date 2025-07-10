@@ -12,7 +12,7 @@ from src.bots.crud import get_bot
 from src.bots.schema import Bot
 
 
-router = APIRouter()
+router = APIRouter(tags=["feedbacks"])
 
 
 @router.post("/bots/{bot_id}/feedbacks", response_model=schemas.FeedbackResponse)
@@ -150,6 +150,29 @@ async def get_bot_feedbacks(
     return response_feedbacks
 
 
+@router.get("/bots/{bot_id}/feedbacks/stats", response_model=schemas.FeedbackStats)
+async def get_feedback_stats(
+    bot_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get feedback statistics for a bot (admin only)."""
+    # Verify user owns this bot
+    bot = await get_bot(db, bot_id)
+    if not bot or bot.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    
+    stats = await crud.feedback_crud.get_feedback_stats(db, bot_id)
+    return schemas.FeedbackStats(
+        total_count=stats["total_count"],
+        average_rating=stats["average_rating"],
+        new_count=stats["new_count"],
+        read_count=stats["read_count"],
+        replied_count=stats["replied_count"]
+    )
+
+
+
 @router.get("/bots/{bot_id}/feedbacks/{feedback_id}", response_model=schemas.FeedbackResponse)
 async def get_feedback(
     bot_id: int,
@@ -245,20 +268,6 @@ async def update_feedback_status(
     )
 
 
-@router.get("/bots/{bot_id}/feedbacks/stats")
-async def get_feedback_stats(
-    bot_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get feedback statistics for a bot (admin only)."""
-    # Verify user owns this bot
-    bot = await get_bot(db, bot_id)
-    if not bot or bot.owner_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Bot not found")
-    
-    stats = await crud.feedback_crud.get_feedback_stats(db, bot_id)
-    return stats
 
 
 @router.delete("/bots/{bot_id}/feedbacks/{feedback_id}")

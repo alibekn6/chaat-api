@@ -53,6 +53,33 @@ Example output format:
 Now, generate the JSON for the given requirements.
 """
 
+QA_FEEDBACK_TEMPLATE_FILLER_PROMPT = """
+You are an expert assistant that configures advanced Telegram Q&A + Feedback bots. Based on the user requirements and knowledge base content, generate appropriate messages for the bot.
+
+This bot combines Q&A functionality with a feedback collection system. Users can ask questions about the knowledge base OR leave feedback with ratings and photos.
+
+User requirements: "{requirements}"
+Knowledge base content: "{knowledge_preview}"
+
+Generate a JSON object with these keys:
+1. "start_message": A friendly welcome message that introduces BOTH Q&A and feedback features
+2. "not_found_message": Message when no answer is found in the knowledge base
+3. "rag_system_prompt": System prompt for the AI that tells it how to answer questions based on provided context
+4. "feedback_welcome_message": Message that introduces the feedback system when user chooses feedback mode
+5. "feedback_thanks_message": Thank you message after feedback is successfully submitted
+
+Keep messages professional, friendly, and appropriate for the business/service described in the requirements.
+
+Example output:
+{{
+  "start_message": "Добро пожаловать! 🤖 Я могу ответить на ваши вопросы и принять ваш отзыв. Выберите действие в меню ниже.",
+  "not_found_message": "Извините, я не нашел информации по вашему вопросу. Попробуйте переформулировать вопрос.",
+  "rag_system_prompt": "Ты полезный помощник. Отвечай на вопросы пользователя на основе предоставленного контекста. Если информации нет в контексте, скажи что не можешь найти эту информацию.",
+  "feedback_welcome_message": "💬 Мы ценим ваше мнение! Ваш отзыв поможет нам улучшить наш сервис.",
+  "feedback_thanks_message": "🙏 Спасибо за ваш отзыв! Мы обязательно его рассмотрим и постараемся стать лучше."
+}}
+"""
+
 
 def load_template(template_name: str) -> str:
     """Loads a bot template file from the templates directory."""
@@ -78,6 +105,11 @@ async def generate_bot_code(bot_id: int, bot_type: BotType, requirements: str, k
         if knowledge_base_status != "ready":
             raise ValueError("Cannot generate Q&A bot: The knowledge base is not ready.")
         return await _generate_qa_bot_from_template(bot_id, requirements)
+    
+    elif bot_type == BotType.qa_feedback:
+        if knowledge_base_status != "ready":
+            raise ValueError("Cannot generate Q&A + Feedback bot: The knowledge base is not ready.")
+        return await _generate_qa_feedback_bot_from_template(bot_id, requirements)
     
     elif bot_type == BotType.simple_chat:
         return await _generate_simple_chat_from_template(bot_id, requirements)
@@ -173,6 +205,62 @@ async def _generate_simple_chat_from_template(bot_id: int, requirements: str) ->
     except (json.JSONDecodeError, KeyError) as e:
         print(f"Error parsing AI response for bot {bot_id}: {e}")
         raise ValueError("Failed to generate bot configuration from AI.")
+
+
+async def _generate_qa_feedback_bot_from_template(bot_id: int, requirements: str) -> str:
+    """Fills the Q&A + Feedback bot template with AI-generated content."""
+    print(f"Generating Q&A + Feedback bot for bot_id: {bot_id} using template.")
+    
+    # 1. Get knowledge base preview for context
+    knowledge_preview = await _get_knowledge_base_preview(bot_id)
+    
+    # 2. Prepare the prompt for the AI
+    prompt = QA_FEEDBACK_TEMPLATE_FILLER_PROMPT.format(
+        requirements=requirements,
+        knowledge_preview=knowledge_preview
+    )
+
+    # 3. Call OpenAI API to get the JSON configuration
+    completion = await openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that only outputs valid JSON."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.3,
+    )
+    
+    try:
+        # 4. Parse the JSON response
+        ai_config = json.loads(completion.choices[0].message.content)
+        print(f"AI Config generated for Q&A + Feedback: {list(ai_config.keys())}")
+        
+        # 5. Load the template file
+        template_code = load_template('qa_feedback_bot_template.py')
+
+        # 6. Fill the template with AI-generated values (with fallbacks)
+        final_code = template_code.replace("{{BOT_ID}}", str(bot_id))
+        final_code = final_code.replace("{{START_MESSAGE}}", ai_config.get('start_message', 'Добро пожаловать! 🤖 Я могу ответить на ваши вопросы и принять ваш отзыв. Выберите действие в меню ниже.'))
+        final_code = final_code.replace("{{NOT_FOUND_MESSAGE}}", ai_config.get('not_found_message', "Извините, я не нашел информации по вашему вопросу."))
+        final_code = final_code.replace("{{RAG_SYSTEM_PROMPT}}", ai_config.get('rag_system_prompt', 'Отвечай на вопросы пользователя на основе предоставленного контекста. Если информации нет в контексте, скажи что не можешь найти эту информацию.'))
+        final_code = final_code.replace("{{FEEDBACK_WELCOME_MESSAGE}}", ai_config.get('feedback_welcome_message', '💬 Мы ценим ваше мнение! Ваш отзыв поможет нам улучшить наш сервис.'))
+        final_code = final_code.replace("{{FEEDBACK_THANKS_MESSAGE}}", ai_config.get('feedback_thanks_message', '🙏 Спасибо за ваш отзыв! Мы обязательно его рассмотрим и постараемся стать лучше.'))
+
+        print(f"Successfully generated Q&A + Feedback bot code for bot {bot_id}")
+        return final_code
+
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"Error parsing AI response for Q&A + Feedback bot {bot_id}: {e}")
+        # Fallback to basic template with default messages
+        template_code = load_template('qa_feedback_bot_template.py')
+        final_code = template_code.replace("{{BOT_ID}}", str(bot_id))
+        final_code = final_code.replace("{{START_MESSAGE}}", 'Добро пожаловать! 🤖 Я могу ответить на ваши вопросы и принять ваш отзыв. Выберите действие в меню ниже.')
+        final_code = final_code.replace("{{NOT_FOUND_MESSAGE}}", "Извините, я не нашел информации по вашему вопросу.")
+        final_code = final_code.replace("{{RAG_SYSTEM_PROMPT}}", 'Отвечай на вопросы пользователя на основе предоставленного контекста. Если информации нет в контексте, скажи что не можешь найти эту информацию.')
+        final_code = final_code.replace("{{FEEDBACK_WELCOME_MESSAGE}}", '💬 Мы ценим ваше мнение! Ваш отзыв поможет нам улучшить наш сервис.')
+        final_code = final_code.replace("{{FEEDBACK_THANKS_MESSAGE}}", '🙏 Спасибо за ваш отзыв! Мы обязательно его рассмотрим и постараемся стать лучше.')
+        return final_code
 
 
 async def _get_knowledge_base_preview(bot_id: int) -> str:

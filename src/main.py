@@ -105,10 +105,10 @@ app.add_middleware(
 app.mount("/static/feedback_images", StaticFiles(directory=azure_settings.local_storage_path), name="feedback_images")
 
 # Include routers
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(bots_router, prefix="/bots", tags=["Bots"])
-app.include_router(ai_router, prefix="/ai", tags=["AI"])
-app.include_router(feedbacks_router, prefix="/feedbacks", tags=["Feedbacks"])
+app.include_router(auth_router, prefix="/auth")
+app.include_router(bots_router, prefix="/bots")
+app.include_router(ai_router, prefix="/ai")
+app.include_router(feedbacks_router)
 
 @app.get("/")
 async def root():

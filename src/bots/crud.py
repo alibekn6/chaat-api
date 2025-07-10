@@ -19,7 +19,7 @@ async def get_bot(db: AsyncSession, bot_id: int) -> schema.Bot | None:
 
 
 async def get_bot_by_token(db: AsyncSession, bot_token: str) -> schema.Bot | None:
-    result = await db.execute(select(schema.Bot).filter(schema.Bot.bot_token == bot_token))
+    result = await db.execute(select(schema.Bot).filter(schema.Bot.bot_token == bot_token).limit(1))
     return result.scalar_one_or_none()
 
 
