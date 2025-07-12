@@ -168,7 +168,8 @@ async def get_feedback_stats(
         average_rating=stats["average_rating"],
         new_count=stats["new_count"],
         read_count=stats["read_count"],
-        replied_count=stats["replied_count"]
+        replied_count=stats["replied_count"],
+        rating_distribution=stats["rating_distribution"]
     )
 
 

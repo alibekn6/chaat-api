@@ -11,9 +11,6 @@ except ImportError:
 
 
 class AzureStorageSettings(BaseSettings):
-    """Azure Blob Storage configuration."""
-    
-    # Azure Storage connection string
     azure_storage_connection_string: str = os.getenv(
 <<<<<<< HEAD
         "AZURE_STORAGE_CONNECTION_STRING",

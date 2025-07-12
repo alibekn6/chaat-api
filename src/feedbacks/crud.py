@@ -169,13 +169,26 @@ class FeedbackCRUD:
         
         result = await db.execute(stmt)
         stats = result.first()
-        
+
+        # Calculate rating distribution
+        rating_dist_stmt = select(
+            Feedback.rating, func.count(Feedback.id)
+        ).where(
+            Feedback.bot_id == bot_id,
+            Feedback.rating.isnot(None)
+        ).group_by(Feedback.rating)
+        rating_result = await db.execute(rating_dist_stmt)
+        rating_counts = dict(rating_result.all())
+        # Ensure all ratings 1-5 are present as strings
+        rating_distribution = {str(i): rating_counts.get(i, 0) for i in range(1, 6)}
+
         return {
             "total_count": stats.total_count or 0,
             "average_rating": float(stats.avg_rating) if stats.avg_rating else 0.0,
             "new_count": stats.new_count or 0,
             "read_count": stats.read_count or 0,
-            "replied_count": stats.replied_count or 0
+            "replied_count": stats.replied_count or 0,
+            "rating_distribution": rating_distribution
         }
     
     async def get_image_accessible_url(self, image: FeedbackImage) -> str:

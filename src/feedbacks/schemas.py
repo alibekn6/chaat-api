@@ -86,8 +86,10 @@ class FeedbackResponse(FeedbackBase):
 
 
 class FeedbackStats(BaseModel):
+    """Feedback statistics including rating distribution."""
     total_count: int
     average_rating: float
     new_count: int
     read_count: int
-    replied_count: int 
+    replied_count: int
+    rating_distribution: dict[str, int] 
