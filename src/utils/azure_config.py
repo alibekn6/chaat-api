@@ -12,11 +12,7 @@ except ImportError:
 
 class AzureStorageSettings(BaseSettings):
     azure_storage_connection_string: str = os.getenv(
-<<<<<<< HEAD
         "AZURE_STORAGE_CONNECTION_STRING",
-=======
-        "AZURE_STORAGE_CONNECTION_STRING",
->>>>>>> d148441 (feat: Q&A feedback bot .env)
     )
     
     # Container name for feedback photos
