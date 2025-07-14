@@ -28,6 +28,12 @@ class AzureStorageManager:
     def __init__(self):
         self.settings = azure_settings
         self.blob_service_client = None
+
+        print(f"AZURE_AVAILABLE={AZURE_AVAILABLE}")
+        print(f"azure_storage_enabled={self.settings.azure_storage_enabled}")
+        print(f"azure_storage_connection_string={self.settings.azure_storage_connection_string}")
+        print(f"azure_container_name={self.settings.azure_container_name}")
+
         
         # Check if Azure is available and enabled
         if AZURE_AVAILABLE and self.settings.azure_storage_enabled:
