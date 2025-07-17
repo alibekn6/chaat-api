@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from src.auth.schema import User, PendingUser
-from src.auth.models import UserCreate, TokenData
+from src.auth.models import UserCreate, TokenData, UserCreateGoogle
 from src.auth.config import (
     SECRET_KEY,
     ALGORITHM,
@@ -14,6 +14,7 @@ from src.auth.config import (
     REFRESH_TOKEN_EXPIRE_DAYS,
     EMAIL_VERIFICATION_EXPIRE_HOURS,
 )
+import secrets
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -47,9 +48,16 @@ async def create_pending_user(db: AsyncSession, user_in: UserCreate) -> PendingU
     await db.refresh(pending_user)
     return pending_user
 
-async def create_user(db: AsyncSession, user_in: UserCreate) -> User:
-    hashed_pw = get_password_hash(user_in.password)
-    user = User(email=user_in.email, hashed_password=hashed_pw, full_name=user_in.full_name)
+async def create_user_google(db: AsyncSession, user_in: UserCreateGoogle) -> User:
+    random_password = secrets.token_urlsafe(32)
+    hashed_pw = get_password_hash(random_password)
+    user = User(
+        email=user_in.email,
+        hashed_password=hashed_pw,
+        full_name=user_in.full_name,
+        is_verified=True,
+        is_active=True
+    )
     db.add(user)
     await db.commit()
     await db.refresh(user)

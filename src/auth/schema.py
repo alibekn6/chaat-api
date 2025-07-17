@@ -17,7 +17,7 @@ class User(Base):
     google_id = Column(String, unique=True, index=True, nullable=True)
 
     bots = relationship("Bot", back_populates="owner")
-    email_verifications = relationship("EmailVerification", back_populates="user")
+    email_verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
 
 
 class EmailVerification(Base):

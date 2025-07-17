@@ -7,7 +7,7 @@ from google.auth.transport import requests
 from src.auth.models import (
     UserCreate,
     Token,
-    GoogleAuth,
+    GoogleCodeAuth,  # заменил GoogleAuth
     UserRead,
     UserUpdate,
     LoginRequest,
@@ -17,11 +17,12 @@ from src.auth.models import (
     VerifyEmailRequest,
     VerifyEmailResponse,
     RegistrationResponse,
+    UserCreateGoogle,  # добавил новую модель
 )
 from src.auth.services import (
     get_user_by_email,
     get_pending_user_by_email,
-    create_user,
+    create_user_google,  # добавил импорт
     create_pending_user,
     authenticate_user,
     create_access_token,
@@ -44,10 +45,12 @@ from src.auth.security import (
 )
 from src.database import get_async_db
 from src.auth.schema import User, PendingUser, RateLimit
-from src.auth.config import GOOGLE_CLIENT_ID, REFRESH_SECRET_KEY, ALGORITHM
+from src.auth.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, REFRESH_SECRET_KEY, ALGORITHM
 from src.auth.dependencies import get_current_user
 from datetime import datetime
 from sqlalchemy import select
+import requests as sync_requests  # чтобы не конфликтовать с google.auth.transport.requests
+import os
 
 router = APIRouter(tags=["auth"])
 
@@ -221,56 +224,67 @@ async def login(
 
 @router.post("/google", response_model=Token)
 async def google_auth(
-    payload: GoogleAuth,
+    payload: GoogleCodeAuth,
     request: Request,
     db: AsyncSession = Depends(get_async_db)
 ):
-    """Google OAuth authentication"""
+    """Authenticate user via Google OAuth2 code flow"""
     try:
-        idinfo = id_token.verify_oauth2_token(
-            payload.id_token,
-            requests.Request(),
-            GOOGLE_CLIENT_ID
+        code = payload.code
+        if not code:
+            raise HTTPException(status_code=400, detail="No code provided")
+
+        # 1. Обменять code на id_token
+        token_url = "https://oauth2.googleapis.com/token"
+        data = {
+            "code": code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": "http://localhost:5173/auth/google/callback",
+            "grant_type": "authorization_code"
+        }
+        resp = sync_requests.post(token_url, data=data)
+        if not resp.ok:
+            raise HTTPException(status_code=400, detail=f"Google token exchange failed: {resp.text}")
+        tokens = resp.json()
+        id_token_str = tokens.get("id_token")
+        if not id_token_str:
+            raise HTTPException(status_code=400, detail="No id_token in Google response")
+
+        # 2. Проверить id_token и дальше по старой логике
+        id_info = id_token.verify_oauth2_token(
+            id_token_str, requests.Request(), GOOGLE_CLIENT_ID
         )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid Google token")
-    
-    email = idinfo.get("email")
-    google_id = idinfo.get("sub")
-    
-    # Check if there's a pending user with this email
-    pending_user = await get_pending_user_by_email(db, email)
-    if pending_user:
-        # Delete pending user since Google verification is instant
-        await db.delete(pending_user)
-        await db.commit()
-    
-    user = await get_user_by_email(db, email)
-    if not user:
-        # Create new user with Google - auto-verified
-        user = User(
-            email=email,
-            hashed_password=get_password_hash(google_id),  # temporary password
-            full_name=idinfo.get("name"),
-            is_verified=True,  # Google users are auto-verified
-            google_id=google_id
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-    else:
-        # Link Google account if not already linked
-        if not user.google_id:
-            user.google_id = google_id
-            # If user exists but not verified, verify them via Google
-            if not user.is_verified:
-                user.is_verified = True
+        if not id_info:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Google ID token"
+            )
+        email = id_info.get("email")
+        name = id_info.get("name")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not found in Google ID token"
+            )
+        existing_user = await get_user_by_email(db, email)
+        if not existing_user:
+            new_user = await create_user_google(db, UserCreateGoogle(email=email, full_name=name or email.split("@")[0]))
             await db.commit()
-            await db.refresh(user)
-    
-    access_token = await create_access_token({"sub": user.email})
-    refresh_token = await create_refresh_token({"sub": user.email})
-    return {"access_token": access_token, "refresh_token": refresh_token}
+            user = new_user
+        else:
+            user = existing_user
+        access_token = await create_access_token({"sub": user.email})
+        refresh_token = await create_refresh_token({"sub": user.email})
+        return Token(access_token=access_token, refresh_token=refresh_token)
+    except Exception as e:
+        import traceback
+        print("[GOOGLE AUTH ERROR]", traceback.format_exc())
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google authentication failed: {str(e)}"
+        )
 
 @router.post("/refresh", response_model=Token)
 async def refresh_access_token(

@@ -86,8 +86,8 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
-class GoogleAuth(BaseModel):
-    id_token: str
+class GoogleCodeAuth(BaseModel):
+    code: str
 
 
 class LoginRequest(BaseModel):
@@ -190,3 +190,37 @@ class RateLimitRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserCreateGoogle(BaseModel):
+    email: str
+    full_name: str
+
+    @model_validator(mode='before')
+    @classmethod
+    def clean_data(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if 'email' in data and data['email']:
+                data['email'] = str(data['email']).lower().strip()
+            if 'full_name' in data and data['full_name']:
+                data['full_name'] = str(data['full_name']).strip()
+        return data
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Email is required')
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, v):
+            raise ValueError('Please enter a valid email address')
+        return v
+
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Full name is required')
+        if len(v) < 2:
+            raise ValueError('Full name must be at least 2 characters long')
+        return v

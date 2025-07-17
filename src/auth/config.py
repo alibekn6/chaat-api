@@ -15,8 +15,9 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 # Google OAuth
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-    raise RuntimeError("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables.") 
+    raise RuntimeError("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI must be set in environment variables.") 
 
 ZEPTOMAIL_API_KEY = os.getenv("ZEPTOMAIL_API_KEY")
 ZEPTOMAIL_DOMAIN = os.getenv("ZEPTOMAIL_DOMAIN")  # Your verified domain in ZeptoMail
