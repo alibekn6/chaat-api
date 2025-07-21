@@ -88,6 +88,7 @@ class TokenData(BaseModel):
 
 class GoogleCodeAuth(BaseModel):
     code: str
+    redirect_uri: str
 
 
 class LoginRequest(BaseModel):
