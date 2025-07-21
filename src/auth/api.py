@@ -240,7 +240,7 @@ async def google_auth(
             "code": code,
             "client_id": GOOGLE_CLIENT_ID,
             "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": "http://localhost:5173/auth/google/callback",
+            "redirect_uri": GOOGLE_REDIRECT_URI,
             "grant_type": "authorization_code"
         }
         resp = sync_requests.post(token_url, data=data)
