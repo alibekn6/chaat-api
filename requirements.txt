@@ -23,8 +23,9 @@ greenlet==3.2.3
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.6.4
-httpx==0.28.1
-httpx-sse==0.4.0
+httpx
+httpx-sse
+
 idna==3.10
 makefun==1.16.0
 markdown-it-py==3.0.0

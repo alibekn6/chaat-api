@@ -4,10 +4,16 @@ import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from google.oauth2 import id_token
 from google.auth.transport import requests
+import httpx
+from urllib.parse import urlencode
 from src.auth.models import (
     UserCreate,
     Token,
     GoogleCodeAuth,  # заменил GoogleAuth
+    GoogleLoginResponse,
+    GoogleCallbackRequest,
+    ProfileOut,
+    TokensUserOut,
     UserRead,
     UserUpdate,
     LoginRequest,
@@ -45,7 +51,17 @@ from src.auth.security import (
 )
 from src.database import get_async_db
 from src.auth.schema import User, PendingUser, RateLimit
-from src.auth.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, REFRESH_SECRET_KEY, ALGORITHM
+from src.auth.config import (
+    GOOGLE_CLIENT_ID, 
+    GOOGLE_CLIENT_SECRET, 
+    GOOGLE_REDIRECT_URI, 
+    GOOGLE_AUTH_ENDPOINT,
+    GOOGLE_TOKEN_ENDPOINT,
+    GOOGLE_USERINFO_ENDPOINT,
+    GOOGLE_SCOPES,
+    REFRESH_SECRET_KEY, 
+    ALGORITHM
+)
 from src.auth.dependencies import get_current_user
 from datetime import datetime
 from sqlalchemy import select
@@ -284,6 +300,125 @@ async def google_auth(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Google authentication failed: {str(e)}"
+        )
+
+
+@router.get("/google/login", response_model=GoogleLoginResponse)
+async def google_login():
+    """Generate Google OAuth 2.0 authorization URL"""
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "scope": " ".join(GOOGLE_SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    url = f"{GOOGLE_AUTH_ENDPOINT}?{urlencode(params)}"
+    return GoogleLoginResponse(auth_url=url)
+
+
+@router.post("/google/callback", response_model=TokensUserOut)
+async def google_callback(
+    payload: GoogleCallbackRequest,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Handle Google OAuth 2.0 callback with authorization code"""
+    if not payload.code:
+        raise HTTPException(status_code=400, detail="Code not provided")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            # Exchange authorization code for access token
+            token_data = {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": payload.code,
+                "grant_type": "authorization_code",
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+            }
+            
+            token_resp = await client.post(GOOGLE_TOKEN_ENDPOINT, data=token_data)
+            if token_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Failed to exchange code for token")
+            
+            token_info = token_resp.json()
+            access_token = token_info.get("access_token")
+            
+            if not access_token:
+                raise HTTPException(status_code=400, detail="No access token received")
+            
+            # Get user info using the access token
+            headers = {"Authorization": f"Bearer {access_token}"}
+            resp = await client.get(GOOGLE_USERINFO_ENDPOINT, headers=headers, params={"alt": "json"})
+        
+        if resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Could not fetch user info from Google")
+
+        data = resp.json()
+        email = data.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not available")
+
+        picture = data.get("picture")
+        given_name = data.get("given_name")
+        family_name = data.get("family_name")
+        name = data.get("name")
+
+        # Find existing user
+        existing_user = await get_user_by_email(db, email.lower())
+        
+        if existing_user is None:
+            # Create new user
+            random_password = get_password_hash(access_token)
+            user = User(
+                email=email.lower(),
+                hashed_password=random_password,
+                full_name=name or f"{given_name or ''} {family_name or ''}".strip(),
+                avatar=picture,
+                first_name=given_name,
+                last_name=family_name,
+                is_verified=True,
+                is_active=True
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        else:
+            user = existing_user
+            # Update user fields if they're empty
+            updated = False
+            if picture and not user.avatar:
+                user.avatar = picture
+                updated = True
+            if given_name and not user.first_name:
+                user.first_name = given_name
+                updated = True
+            if family_name and not user.last_name:
+                user.last_name = family_name
+                updated = True
+            if updated:
+                db.add(user)
+                await db.commit()
+                await db.refresh(user)
+
+        # Generate JWT tokens
+        access_token = await create_access_token({"sub": str(user.id)})
+        refresh_token = await create_refresh_token({"sub": str(user.id)})
+        
+        return TokensUserOut(
+            access_token=access_token, 
+            refresh_token=refresh_token, 
+            user=ProfileOut.from_orm(user)
+        )
+
+    except Exception as e:
+        import traceback
+        print("[GOOGLE CALLBACK ERROR]", traceback.format_exc())
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google callback failed: {str(e)}"
         )
 
 @router.post("/refresh", response_model=Token)

@@ -91,6 +91,35 @@ class GoogleCodeAuth(BaseModel):
     redirect_uri: str
 
 
+class GoogleLoginResponse(BaseModel):
+    auth_url: str
+
+
+class GoogleCallbackRequest(BaseModel):
+    code: str
+
+
+class ProfileOut(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    avatar: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    is_active: bool
+    is_verified: bool
+    is_superuser: bool
+
+    class Config:
+        from_attributes = True
+
+
+class TokensUserOut(BaseModel):
+    access_token: str
+    refresh_token: str
+    user: ProfileOut
+
+
 class LoginRequest(BaseModel):
     email: str  # Changed from EmailStr to str for custom validation
     password: str
