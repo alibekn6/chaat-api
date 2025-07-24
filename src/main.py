@@ -2,24 +2,20 @@ from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from fastapi.middleware.cors import CORSMiddleware
-from src.database import get_async_db, async_engine, Base
+from src.database import get_async_db, AsyncSessionLocal, ASYNC_DATABASE_URL
+from src.database import Base, ASYNC_DATABASE_URL
 from src.auth.api import router as auth_router
 from src.bots.api import router as bots_router
 from src.ai.router import router as ai_router
 from src.feedbacks.api import router as feedbacks_router
-import src.auth.schema
-import src.bots.schema
-import src.feedbacks.models
 import logging
 from pathlib import Path
 from src.utils.azure_config import azure_settings
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -27,6 +23,25 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting application...")
+
+
+    # --- ВРЕМЕННЫЙ КОД ДЛЯ СОЗДАНИЯ ТАБЛИЦ ---
+    engine = create_async_engine(ASYNC_DATABASE_URL)
+    async with engine.begin() as conn:
+        # Эта команда создаст все таблицы, которые "видит" Base
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    logger.info("Initial tables created (if they didn't exist).")
+    # --- КОНЕЦ ВРЕМЕННОГО КОДА ---
+
+
+    # --- ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ---
+    # Создаем асинхронный движок ТОЛЬКО при старте приложения
+    engine = create_async_engine(ASYNC_DATABASE_URL, echo=True, future=True)
+    # Привязываем нашу "фабрику" сессий к этому движку
+    AsyncSessionLocal.configure(bind=engine)
+    logger.info("Database engine created and session configured.")
+    # ------------------------------------
     
     # Create local storage directory
     local_storage_dir = Path(azure_settings.local_storage_path)
@@ -45,6 +60,9 @@ async def lifespan(app: FastAPI):
     yield
     
     # Shutdown
+    # Закрываем пул соединений движка
+    if 'engine' in locals():
+        await engine.dispose()
     logger.info("Shutting down application...")
 
 app = FastAPI(
@@ -54,6 +72,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# ... (весь остальной код твоего main.py остается без изменений) ...
+# ... (exception_handler, origins, middleware, routers, health checks) ...
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -136,6 +156,4 @@ async def check_database_connection(
         )
     return {"status": "healthy", "detail": "Database connection successful"}
 
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    await async_engine.dispose()
+# Старый on_event("shutdown") больше не нужен, так как это делается в lifespan

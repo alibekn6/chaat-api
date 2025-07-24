@@ -1,0 +1,69 @@
+services:
+  db:
+    image: postgres:15
+    container_name: chaat-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: post667
+      POSTGRES_DB: chaat
+    # Порты лучше оставить, чтобы можно было подключиться к базе с хоста для отладки
+    ports:
+      - "5432:5432"
+    volumes:
+      # Важно: даем томам имена проекта, чтобы они не пересекались с другими
+      - reeply_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chaat"]
+      interval: 5s
+      timeout: 5s
+      retries: 5 # Можно увеличить количество попыток
+
+  api:
+    build:
+      context: ./chaat-api
+      dockerfile: Dockerfile
+    # --- ЭТО ГЛАВНОЕ ИЗМЕНЕНИЕ ---
+    # Запускаем миграции, и только потом - веб-сервер
+    command: sh -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      # Эти переменные теперь будут использоваться и Alembic, и приложением
+      DATABASE_URL: postgresql://postgres:post667@db:5432/chaat
+      SQLALCHEMY_DATABASE_URL: postgresql+asyncpg://postgres:post667@db:5432/chaat
+    env_file:
+      - chaat-api/.env
+    ports:
+      - "8000:8000"
+    container_name: chaat-api
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./chaat-api:/app
+      - ./chaat-api/unified-ion-463106-v9-021b48db7f17.json:/app/unified-ion-463106-v9-021b48db7f17.json
+      - reeply_chroma_data:/app/db/chroma_db
+      - reeply_knowledge_bases:/app/temp_knowledge_bases
+      - reeply_temp_bots:/app/temp_bots
+    restart: on-failure # Убрал лишний отступ
+
+  client:
+    build:
+      context: ./chaat-client
+      dockerfile: Dockerfile.dev
+    container_name: chaat-client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./chaat-client:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://api:8000
+    depends_on:
+      - api
+    restart: on-failure
+
+volumes:
+  reeply_postgres_data:
+  reeply_chroma_data:
+  reeply_knowledge_bases:
+  reeply_temp_bots:
