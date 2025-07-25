@@ -25,13 +25,13 @@ async def lifespan(app: FastAPI):
     logger.info("Starting application...")
 
 
-    # --- ВРЕМЕННЫЙ КОД ДЛЯ СОЗДАНИЯ ТАБЛИЦ ---
-    engine = create_async_engine(ASYNC_DATABASE_URL)
-    async with engine.begin() as conn:
-        # Эта команда создаст все таблицы, которые "видит" Base
-        await conn.run_sync(Base.metadata.create_all)
-    await engine.dispose()
-    logger.info("Initial tables created (if they didn't exist).")
+    # --- ВРЕМЕННЫЙ КОД ДЛЯ СОЗДАНИЯ ТАБЛИЦ --- это мне помогло когда не создавались таблицы в alembic
+    # engine = create_async_engine(ASYNC_DATABASE_URL)
+    # async with engine.begin() as conn:
+    #     # Эта команда создаст все таблицы, которые "видит" Base
+    #     await conn.run_sync(Base.metadata.create_all)
+    # await engine.dispose()
+    # logger.info("Initial tables created (if they didn't exist).")
     # --- КОНЕЦ ВРЕМЕННОГО КОДА ---
 
 

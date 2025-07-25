@@ -328,6 +328,12 @@ async def google_callback(
         raise HTTPException(status_code=400, detail="Code not provided")
 
     try:
+        # --- НАЧАЛО РЕШАЮЩЕГО ЭКСПЕРИМЕНТА ---
+        print("--- FINAL DIAGNOSTIC CHECK ---")
+        print(f"GOOGLE_CLIENT_ID from settings: {GOOGLE_CLIENT_ID}")
+        print(f"GOOGLE_REDIRECT_URI from settings: '{GOOGLE_REDIRECT_URI}'")
+        print("---------------------------------")
+        # --- КОНЕЦ РЕШАЮЩЕГО ЭКСПЕРИМЕНТА ---
         async with httpx.AsyncClient() as client:
             # Exchange authorization code for access token
             token_data = {
@@ -337,9 +343,11 @@ async def google_callback(
                 "grant_type": "authorization_code",
                 "redirect_uri": GOOGLE_REDIRECT_URI,
             }
-            
+            print(f"Sending to Google Token Endpoint: {token_data}")
             token_resp = await client.post(GOOGLE_TOKEN_ENDPOINT, data=token_data)
             if token_resp.status_code != 200:
+                error_details = token_resp.json()
+                print(f"[CRITICAL GOOGLE ERROR] Status: {token_resp.status_code}, Details: {error_details}")
                 raise HTTPException(status_code=400, detail="Failed to exchange code for token")
             
             token_info = token_resp.json()
